@@ -1,0 +1,73 @@
+#!/usr/bin/python3.6
+import requests
+import json
+import pprint
+import sys
+
+# Nutanix API URL
+cluster_ip_address = '172.16.1.13'
+API_AHV = ':9440/api/nutanix/v3/'
+
+payload = "{}"
+
+#payload = json.dumps(
+#{"kind": "image"
+#}, sort_keys=True)
+
+headers = {
+    'Content-Type': "application/json",
+    'Authorization': "Basic YWRtaW46QUhWNGV2ZXIv",
+    }
+
+def _suppress_security():
+    # suppress the security warnings
+	requests.packages.urllib3.disable_warnings()
+
+def _http_request(base_url, json_data, element):
+	_suppress_security()
+	
+	response = requests.request("POST", base_url, data=payload, headers=headers, verify=False)
+	answer = json.loads(response.text)
+	lenght = len(answer["entities"])
+
+	#print full json answer
+	#pprint.pprint(answer)
+
+	#print just some meaning info for humans
+	#print("********************************")
+	i = 0
+	uuid_out = []
+	while i < lenght:
+		name = answer["entities"][i][element]["name"]
+		uuid = answer["entities"][i]["metadata"]["uuid"]
+		print("***********************")
+		print('name='+name)
+		print('uuid='+uuid)
+		uuid_out.append(uuid)
+		i += 1
+	return uuid_out
+
+if len(sys.argv) == 1 :
+	print("implemented today is images, vms, blueprints")
+else :
+	if len(sys.argv) > 2 :
+		print("too many arguments, bye bye")
+	else :
+		element = 'noway'
+		ask = str(sys.argv[1])
+		if ask == "images" :
+			element = 'spec'
+			request = 'images/list'
+		if ask == "vms" :
+			element = 'spec'
+			request = 'vms/list'
+		if ask == "blueprints" :
+                	element = 'metadata'
+                	request = 'blueprints/list'
+		if element != "noway" :
+			base_url = "https://" + cluster_ip_address + API_AHV + request
+			uuid_out=_http_request(base_url, payload, element)
+		else :
+			print("bad request, only implemented vms, blueprints, images")
+#	for i in uuid_out :
+#		print(i)

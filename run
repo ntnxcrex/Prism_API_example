@@ -1,0 +1,112 @@
+#!/usr/bin/python3.6
+import requests
+import json
+import pprint
+import sys
+
+# Nutanix API URL
+cluster_ip_address = '172.16.1.13'
+API_AHV = ':9440/api/nutanix/v3/'
+
+payload = "{}"
+
+def _payload2(providername, provideruuid, appname, appdesc):
+	#create payload to launch Blueprint assuming blueprint application profile name is Nutanix with the specified uuid
+	#to be improved with those parameters as variable
+	payload2 = json.dumps(
+	{
+		"spec": {
+			"app_profile_reference": {
+				"kind": "app_profile",
+				"name": providername,
+				"uuid": provideruuid
+			},
+			"app_name": appname,
+			"app_description": appdesc
+		}
+	}, sort_keys=True)
+	return payload2
+
+headers = {
+    'Content-Type': "application/json",
+    'Authorization': "Basic YWRtaW46QUhWNGV2ZXIv",
+    }
+
+def _suppress_security():
+    # suppress the security warnings
+	requests.packages.urllib3.disable_warnings()
+
+def _http_request(base_url, json_data, element):
+	_suppress_security()
+	
+	response = requests.request("POST", base_url, data=payload, headers=headers, verify=False)
+	answer = json.loads(response.text)
+	lenght = len(answer["entities"])
+
+	#print full json answer
+#	pprint.pprint(answer)
+
+	#print just some meaning info for humans
+	#print("********************************")
+	i = 0
+	uuid_out = []
+	while i < lenght:
+		name = answer["entities"][i][element]["name"]
+		uuid = answer["entities"][i]["metadata"]["uuid"]
+		uuid_out.append(uuid)
+		i += 1
+	return uuid_out
+
+def _http_request_2(base_url, json_data):
+        _suppress_security()
+
+        response = requests.request("GET", base_url, data=payload, headers=headers, verify=False)
+        answer = json.loads(response.text)
+
+        uuid_out = []
+        for v1 in answer["status"]["resources"]["app_profile_list"]:
+                if "uuid" in v1:
+#                       pprint.pprint(v1["uuid"])
+#                       pprint.pprint(v1["name"])
+                        uuid_out.append(v1["uuid"])
+                        uuid_out.append(v1["name"])
+#                       import pdb;pdb.set_trace()
+        return uuid_out
+
+if len(sys.argv) < 6:
+	print("please use: run blueprint_UUID application_name application_description providername provider_UUID")
+else :
+	if len(sys.argv) > 6 :
+		print("too many arguments, bye bye")
+	else :
+		bpuuid = str(sys.argv[1])
+		appname = str(sys.argv[2])
+		appdesc = str(sys.argv[3])
+		providername = str(sys.argv[4])
+		provideruuid = str(sys.argv[5])
+
+# verify if Blueprint uuid actually exists in the system otherwise request got errors
+		element = 'metadata'
+		request = 'blueprints/list'
+		base_url = "https://" + cluster_ip_address + API_AHV + request
+		uuid_out_bp=_http_request(base_url, payload, element)
+
+# verify if provider exists in the system otherwise request got error
+		request = 'blueprints/'
+		base_url = "https://" + cluster_ip_address + API_AHV + request + bpuuid
+		uuid_out_provider=_http_request_2(base_url, payload)
+
+		for i in uuid_out_bp :
+			if bpuuid == i :
+				print("found blueprint uuid")
+				for j in uuid_out_provider :
+					if provideruuid == j :
+						print("have the provider uuid associated with above bluprint")
+						bp_payload = _payload2(providername, provideruuid, appname, appdesc)
+#						pprint.pprint(json.loads(bp_payload))
+						_suppress_security()
+						base_url2 = "https://" + cluster_ip_address + API_AHV + "blueprints/" + bpuuid + "/simple_launch"
+						response = requests.request("POST", base_url2, data=bp_payload, headers=headers, verify=False)
+						pprint.pprint(response.text)
+
+

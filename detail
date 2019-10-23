@@ -1,0 +1,56 @@
+#!/usr/bin/python3.6
+import requests
+import json
+import pprint
+import sys
+
+# Nutanix API URL
+cluster_ip_address = '172.16.1.13'
+API_AHV = ':9440/api/nutanix/v3/'
+
+payload = "{}"
+
+headers = {
+    'Content-Type': "application/json",
+    'Authorization': "Basic YWRtaW46QUhWNGV2ZXIv",
+    }
+
+def _suppress_security():
+    # suppress the security warnings
+	requests.packages.urllib3.disable_warnings()
+
+def _http_request(base_url, json_data):
+	_suppress_security()
+	
+	response = requests.request("GET", base_url, data=payload, headers=headers, verify=False)
+	answer = json.loads(response.text)
+
+#	print full json answer
+#	pprint.pprint(answer)
+
+	#print just some meaning info for humans
+#	print("********************************")
+	uuid_out = []
+	for v1 in answer["status"]["resources"]["app_profile_list"]:
+		if "uuid" in v1:
+#			pprint.pprint(v1["uuid"])
+#			pprint.pprint(v1["name"])
+			uuid_out.append(v1["uuid"])
+			uuid_out.append(v1["name"])
+#			import pdb;pdb.set_trace()
+	return uuid_out
+
+if len(sys.argv) < 2 :
+	print("please give blueprint uuid")
+else :
+	if len(sys.argv) > 2 :
+		print("too many arguments, bye bye")
+	else :
+		ask = str(sys.argv[1])
+		request = 'blueprints/'
+		base_url = "https://" + cluster_ip_address + API_AHV + request + ask
+		uuid_out=_http_request(base_url, payload)
+		print("uuid and name of the provider")
+		for i in uuid_out:
+			print(i)
+
