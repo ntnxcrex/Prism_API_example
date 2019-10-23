@@ -14,3 +14,6 @@ above 3 are just some examples on how to interact with APIs, potential is quite 
 A video of the interaction is published here: https://youtu.be/guTBBtlA7uA
 
 Python scripts are not quite elegant, I started programming Python 3 months ago... last code I wrote was in Fortran in 1996 for my degree (I'm rather old) :-)
+
+This scripts are not intended for production purposes and are not supported in any way by Nutanix.
+They have been developed for demostration only.
