@@ -1,0 +1,117 @@
+#!/usr/bin/python3.6
+import json
+import sys
+import csv 
+import requests
+import pprint
+from requests.auth import HTTPBasicAuth
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+import getpass
+
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
+app_cost = 'app_day_costs.csv'
+proj_cost = 'proj_day_costs.csv'
+
+pc_ip = '192.168.222.50'
+
+def crudops(url1, payload):
+	payload = json.dumps(payload)
+
+	headers = {
+	'Content-Type': "application/json",
+	'Authorization': "Basic YWRtaW46QUhWNGV2ZXIv",
+	}
+
+	r = requests.request("POST", url1, data=payload, headers=headers, verify=False)
+	return json.loads(r.text)
+
+url1 = "https://" + pc_ip + ":9440/api/nutanix/v3/apps/list"
+payload1 = {}
+t1 = crudops(url1, payload1)
+
+i = 0
+num_applications = len(t1['entities'])
+
+app_name = []
+app_uuid = []
+proj_name = []
+proj_uuid = []
+
+while i < num_applications :
+	app_name.append(t1['entities'][i]['metadata']['name'])
+	app_uuid.append(t1['entities'][i]['metadata']['uuid'])
+	proj_name.append(t1['entities'][i]['metadata']['project_reference']['name'])
+	proj_uuid.append(t1['entities'][i]['metadata']['project_reference']['uuid'])
+	i += 1
+
+i = 0 
+while i < num_applications :
+	print("app_name  ", app_name[i],"  app uuid  ",app_uuid[i])
+	print("proj_name  ", proj_name[i],"  proj uuid  ",proj_uuid[i])
+	i += 1
+
+app_dict = {}
+for i in t1['entities']:
+	app_dict[str(i['metadata']['uuid'])] = str(i['metadata']['name'])
+
+cost_file = open(app_cost, 'w')
+header = 'DAY,APP UUID,APP NAME,PROJ NAME,PROJ UUID,COST USD\n'
+cost_file.write(header)
+
+url2 = 'https://' + pc_ip + ':9440/api/nutanix/v3/apps/consumption_list'
+
+payload2 = {
+"time_unit": "day",
+"filters": {
+"entity_ids": [app_uuid[0]]
+}
+}
+
+app_data = crudops(url2, payload2)
+
+for i in app_data['data']['items']:
+	for j in i['data']:
+		k = 0
+		csv = str(i['date'])+','+str(j['key'])+',None,None,None,'+str(j['value'])
+		while k < num_applications :
+				if str(j['key']) == app_uuid[k] :
+					csv = str(i['date'])+','+str(j['key'])+','+app_name[k]+','+proj_name[k]+','+proj_uuid[k]+','+str(j['value'])
+				k += 1
+		cost_file.write(csv+'\n')
+
+url3 = "https://" + pc_ip + ":9440/api/nutanix/v3/projects/list"
+payload3 = {}
+t1 = crudops(url3, payload3)
+
+
+proj_dict = {}
+proj = []
+k = -1 
+for i in t1['entities']:
+	proj_dict[str(i['metadata']['uuid'])] = str(i['spec']['name'])
+	proj.append(t1['entities'][k]['metadata']['uuid'])
+	k += 1
+
+proj_cost_file = open (proj_cost, 'w')
+header = 'DAY,PROJ UUID,PROJ NAME,COST USD\n'
+proj_cost_file.write(header)
+print(k)
+
+while k >= 0 :
+
+	payload4 = {
+  	"time_unit": "day",
+  	"filters": {
+    	"entity_ids": [proj[k]] 
+  	}
+	}
+
+	url4 = 'https://' + pc_ip + ':9440/api/nutanix/v3/projects/consumption_list'
+	proj_data = crudops(url4, payload4)
+
+	for i in proj_data['data']['items']:
+		for j in i['data'] :
+			csv = str(i['date'])+','+str(j['key'])+','+str(proj_dict[j['key']])+','+str(j['value'])
+			proj_cost_file.write(csv+'\n')
+	k -= 1
